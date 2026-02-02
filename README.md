@@ -10,14 +10,7 @@ A lightweight, interactive toolkit for creating **SFI-ID4.2.1 (Safe Secrets Stan
 
 ### The Problem
 
-Developers frequently get security violations like:
-
-```
-❌ [SFI-ID4.2.1] Storage Accounts - Safe Secrets Standard
-   Storage account 'stmydev123' has shared key access enabled
-```
-
-This happens because manually created Azure resources don't disable key-based access by default.
+When manually creating Azure resources, it's easy to forget security settings like disabling key-based access. This tool ensures all resources are created with security best practices by default.
 
 ### Existing Solutions Are Too Heavy
 
@@ -45,7 +38,7 @@ This happens because manually created Azure resources don't disable key-based ac
 
 ```powershell
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/AzureResourceCreatingTool.git
+git clone https://github.com/yhl10000/AzureResourceCreatingTool.git
 cd AzureResourceCreatingTool
 
 # Run the interactive wizard
