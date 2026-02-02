@@ -1,0 +1,36 @@
+# Azure
+.azure/
+azurite/
+
+# PowerShell
+*.log
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets (should never be committed)
+*.env
+.env.*
+secrets.json
+credentials.json
+local.settings.json
+
+# Build outputs
+bin/
+obj/
+out/
+
+# Bicep
+*.json.bak
+
+# Team specific config (users should copy from template)
+# Uncomment if you don't want team-config.ps1 tracked:
+# team-config.ps1
