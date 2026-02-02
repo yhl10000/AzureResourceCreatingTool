@@ -3,7 +3,7 @@
 // ========================================
 // This is the main deployment file that orchestrates
 // the creation of secure Azure resources compliant with
-// SFI-ID4.2.1 (Safe Secrets Standard)
+// SFI-ID4.2.1 (Safe Secrets Standard) and NSP compliance
 // ========================================
 
 targetScope = 'resourceGroup'
@@ -41,6 +41,26 @@ param deployKeyVault bool = true
 
 @description('Deploy Cosmos DB')
 param deployCosmosDb bool = false
+
+// ============================================
+// NSP Parameters
+// ============================================
+
+@description('Deploy Network Security Perimeter')
+param deployNsp bool = false
+
+@description('NSP Access Mode for resource associations')
+@allowed([
+  'Learning'    // Monitor mode - logs violations but doesn\'t block
+  'Enforced'    // Strict mode - blocks non-compliant traffic
+])
+param nspAccessMode string = 'Learning'
+
+@description('Allowed inbound IP address prefixes for NSP (CIDR notation)')
+param nspAllowedInboundIps array = []
+
+@description('Allowed outbound FQDNs for NSP')
+param nspAllowedOutboundFqdns array = []
 
 // SQL Server specific parameters (required if deploySqlServer = true)
 @description('Azure AD Admin Object ID for SQL Server')
@@ -103,6 +123,7 @@ var commonTags = {
   Project: projectName
   Environment: environment
   SecurityCompliance: 'SFI-ID4.2.1'
+  NspEnabled: deployNsp ? 'true' : 'false'
   ManagedBy: 'Bicep'
   CreatedDate: deploymentTimestamp
 }
@@ -110,6 +131,19 @@ var commonTags = {
 // ============================================
 // MODULES
 // ============================================
+
+// Network Security Perimeter
+module networkSecurityPerimeter 'modules/network-security-perimeter.bicep' = if (deployNsp) {
+  name: 'deploy-nsp-${projectName}-${environment}'
+  params: {
+    projectName: projectName
+    environment: environment
+    location: location
+    allowedInboundAddressPrefixes: nspAllowedInboundIps
+    allowedOutboundFqdns: nspAllowedOutboundFqdns
+    tags: commonTags
+  }
+}
 
 // Storage Account
 module storageAccount 'modules/secure-storage.bicep' = if (deployStorage) {
@@ -159,6 +193,64 @@ module cosmosDb 'modules/secure-cosmosdb.bicep' = if (deployCosmosDb) {
 }
 
 // ============================================
+// NSP RESOURCE ASSOCIATIONS
+// ============================================
+// Associate deployed resources with the Network Security Perimeter
+// These must be deployed after both NSP and target resources exist
+
+// Storage Account NSP Association
+module storageNspAssociation 'modules/nsp-resource-association.bicep' = if (deployNsp && deployStorage) {
+  name: 'nsp-assoc-storage-${projectName}-${environment}'
+  params: {
+    nspName: networkSecurityPerimeter.outputs.nspName
+    profileId: networkSecurityPerimeter.outputs.profileId
+    targetResourceId: storageAccount.outputs.storageAccountId
+    associationName: 'assoc-storage-${projectName}'
+    location: location
+    accessMode: nspAccessMode
+  }
+}
+
+// Key Vault NSP Association
+module keyVaultNspAssociation 'modules/nsp-resource-association.bicep' = if (deployNsp && deployKeyVault) {
+  name: 'nsp-assoc-kv-${projectName}-${environment}'
+  params: {
+    nspName: networkSecurityPerimeter.outputs.nspName
+    profileId: networkSecurityPerimeter.outputs.profileId
+    targetResourceId: keyVault.outputs.keyVaultId
+    associationName: 'assoc-kv-${projectName}'
+    location: location
+    accessMode: nspAccessMode
+  }
+}
+
+// SQL Server NSP Association
+module sqlServerNspAssociation 'modules/nsp-resource-association.bicep' = if (deployNsp && deploySqlServer && !empty(sqlAadAdminObjectId) && !empty(sqlAadAdminLogin)) {
+  name: 'nsp-assoc-sql-${projectName}-${environment}'
+  params: {
+    nspName: networkSecurityPerimeter.outputs.nspName
+    profileId: networkSecurityPerimeter.outputs.profileId
+    targetResourceId: sqlServer.outputs.sqlServerId
+    associationName: 'assoc-sql-${projectName}'
+    location: location
+    accessMode: nspAccessMode
+  }
+}
+
+// Cosmos DB NSP Association
+module cosmosDbNspAssociation 'modules/nsp-resource-association.bicep' = if (deployNsp && deployCosmosDb) {
+  name: 'nsp-assoc-cosmos-${projectName}-${environment}'
+  params: {
+    nspName: networkSecurityPerimeter.outputs.nspName
+    profileId: networkSecurityPerimeter.outputs.profileId
+    targetResourceId: cosmosDb.outputs.cosmosDbAccountId
+    associationName: 'assoc-cosmos-${projectName}'
+    location: location
+    accessMode: nspAccessMode
+  }
+}
+
+// ============================================
 // OUTPUTS
 // ============================================
 
@@ -168,6 +260,7 @@ output deployedResources object = {
   sqlServerName: deploySqlServer ? sqlServer.outputs.sqlServerName : 'not deployed'
   keyVaultName: deployKeyVault ? keyVault.outputs.keyVaultName : 'not deployed'
   cosmosDbAccountName: deployCosmosDb ? cosmosDb.outputs.cosmosDbAccountName : 'not deployed'
+  nspName: deployNsp ? networkSecurityPerimeter.outputs.nspName : 'not deployed'
 }
 
 @description('Storage Account details')
@@ -196,4 +289,13 @@ output cosmosDbDetails object = deployCosmosDb ? {
   id: cosmosDb.outputs.cosmosDbAccountId
   name: cosmosDb.outputs.cosmosDbAccountName
   endpoint: cosmosDb.outputs.documentEndpoint
+} : {}
+
+@description('Network Security Perimeter details')
+output nspDetails object = deployNsp ? {
+  id: networkSecurityPerimeter.outputs.nspId
+  name: networkSecurityPerimeter.outputs.nspName
+  profileId: networkSecurityPerimeter.outputs.profileId
+  profileName: networkSecurityPerimeter.outputs.profileName
+  accessMode: nspAccessMode
 } : {}

@@ -20,6 +20,18 @@
     "deployCosmosDb": {
       "value": true
     },
+    "deployNsp": {
+      "value": true
+    },
+    "nspAccessMode": {
+      "value": "Enforced"
+    },
+    "nspAllowedInboundIps": {
+      "value": []
+    },
+    "nspAllowedOutboundFqdns": {
+      "value": []
+    },
     "sqlAadAdminObjectId": {
       "value": "00000000-0000-0000-0000-000000000000"
     },

@@ -20,6 +20,12 @@
     "deployCosmosDb": {
       "value": false
     },
+    "deployNsp": {
+      "value": false
+    },
+    "nspAccessMode": {
+      "value": "Learning"
+    },
     "storageSku": {
       "value": "Standard_LRS"
     },

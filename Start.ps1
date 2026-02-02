@@ -232,7 +232,7 @@ if (-not (Read-YesNo "准备好开始了吗?")) {
     exit 0
 }
 
-$totalSteps = 6
+$totalSteps = 7
 $config = @{}
 
 # ============================================
@@ -354,10 +354,39 @@ if ($config.DeploySql) {
 }
 
 # ============================================
-# Step 5: 选择区域
+# Step 5: 网络安全边界 (NSP) 配置
 # ============================================
 
-Write-Step -Current 5 -Total $totalSteps -Title "选择部署区域"
+Write-Step -Current 5 -Total $totalSteps -Title "网络安全边界 (NSP) 配置"
+
+Write-Info "NSP 可为 PaaS 资源提供网络隔离，防止未授权访问"
+Write-Tip "建议生产环境启用 NSP"
+
+$config.DeployNsp = Read-YesNo "是否启用 Network Security Perimeter?" -Default $false
+
+if ($config.DeployNsp) {
+    Write-Host ""
+    Write-Host "  NSP 访问模式:" -ForegroundColor Yellow
+    $nspModeOptions = @(
+        "Learning (监控模式 - 记录但不阻止)"
+        "Enforced (强制模式 - 阻止非合规流量)"
+    )
+    $modeChoice = Read-Choice -Prompt "选择 NSP 模式" -Options $nspModeOptions -Default 0
+    $config.NspAccessMode = if ($modeChoice -eq 0) { "Learning" } else { "Enforced" }
+    
+    Write-Host ""
+    Write-Host "  √ NSP 模式: $($config.NspAccessMode)" -ForegroundColor Green
+} else {
+    $config.NspAccessMode = "Learning"
+    Write-Host ""
+    Write-Host "  √ 跳过 NSP 配置" -ForegroundColor Gray
+}
+
+# ============================================
+# Step 6: 选择区域
+# ============================================
+
+Write-Step -Current 6 -Total $totalSteps -Title "选择部署区域"
 
 if ($script:IsDryRun) {
     # 演练模式：使用模拟区域列表
@@ -411,10 +440,10 @@ $config.AutoDeleteAfterDays = 7
 $deleteAfterDate = (Get-Date).AddDays(7).ToString("yyyy-MM-dd")
 
 # ============================================
-# Step 6: 确认并部署
+# Step 7: 确认并部署
 # ============================================
 
-Write-Step -Current 6 -Total $totalSteps -Title "确认配置"
+Write-Step -Current 7 -Total $totalSteps -Title "确认配置"
 
 Write-Host ""
 Write-Host "  ┌─────────────────────────────────────────────┐" -ForegroundColor DarkGray
@@ -432,6 +461,11 @@ Write-Host "│" -ForegroundColor DarkGray
 Write-Host "  │ 过期时间:   " -ForegroundColor DarkGray -NoNewline
 Write-Host ("{0,-32}" -f $deleteAfterDate) -ForegroundColor Yellow -NoNewline
 Write-Host "│" -ForegroundColor DarkGray
+if ($config.DeployNsp) {
+    Write-Host "  │ NSP 模式:   " -ForegroundColor DarkGray -NoNewline
+    Write-Host ("{0,-32}" -f $config.NspAccessMode) -ForegroundColor Magenta -NoNewline
+    Write-Host "│" -ForegroundColor DarkGray
+}
 Write-Host "  ├─────────────────────────────────────────────┤" -ForegroundColor DarkGray
 Write-Host "  │ 资源:                                       │" -ForegroundColor DarkGray
 $resourceList = @()
@@ -439,6 +473,7 @@ if ($config.DeployStorage) { $resourceList += "Storage Account" }
 if ($config.DeployKeyVault) { $resourceList += "Key Vault" }
 if ($config.DeploySql) { $resourceList += "SQL Server" }
 if ($config.DeployCosmos) { $resourceList += "Cosmos DB" }
+if ($config.DeployNsp) { $resourceList += "Network Security Perimeter" }
 foreach ($r in $resourceList) {
     Write-Host "  │   [x] " -ForegroundColor DarkGray -NoNewline
     Write-Host ("{0,-37}" -f $r) -ForegroundColor Green -NoNewline
@@ -491,6 +526,7 @@ if ($script:IsDryRun) {
     if ($config.DeployKeyVault) { $simulatedResources["keyVaultName"] = $keyVaultName }
     if ($config.DeploySql) { $simulatedResources["sqlServerName"] = $sqlServerName }
     if ($config.DeployCosmos) { $simulatedResources["cosmosDbAccountName"] = $cosmosDbName }
+    if ($config.DeployNsp) { $simulatedResources["nspName"] = "nsp-$($config.ProjectName)-dev" }
     
 } else {
     # ============================================
@@ -534,8 +570,13 @@ if ($script:IsDryRun) {
         "deployStorage=$($config.DeployStorage.ToString().ToLower())",
         "deployKeyVault=$($config.DeployKeyVault.ToString().ToLower())",
         "deploySqlServer=$($config.DeploySql.ToString().ToLower())",
-        "deployCosmosDb=$($config.DeployCosmos.ToString().ToLower())"
+        "deployCosmosDb=$($config.DeployCosmos.ToString().ToLower())",
+        "deployNsp=$($config.DeployNsp.ToString().ToLower())"
     )
+
+    if ($config.DeployNsp) {
+        $deployParams += "nspAccessMode=$($config.NspAccessMode)"
+    }
 
     if ($config.DeploySql) {
         $deployParams += "sqlAadAdminObjectId=$($config.SqlAdminObjectId)"
@@ -611,6 +652,10 @@ if ($config.DeployStorage) { Write-Host "    Storage:  allowSharedKeyAccess = fa
 if ($config.DeployKeyVault) { Write-Host "    KeyVault: enableRbacAuthorization = true" -ForegroundColor DarkGreen }
 if ($config.DeploySql) { Write-Host "    SQL:      azureADOnlyAuthentication = true" -ForegroundColor DarkGreen }
 if ($config.DeployCosmos) { Write-Host "    Cosmos:   disableLocalAuth = true" -ForegroundColor DarkGreen }
+if ($config.DeployNsp) { 
+    Write-Host "    NSP:      accessMode = $($config.NspAccessMode)" -ForegroundColor DarkGreen 
+    Write-Host "              (资源已关联到网络安全边界)" -ForegroundColor DarkGray
+}
 
 Write-Host ""
 if ($config.AutoDeleteAfterDays -gt 0) {
