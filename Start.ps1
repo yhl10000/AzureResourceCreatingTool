@@ -435,10 +435,6 @@ $regionNames = $displayRegions | ForEach-Object { "$($_.name) - $($_.displayName
 $regionChoice = Read-Choice -Prompt "选择区域 (显示前15个常用区域)" -Options $regionNames -Default 0
 $config.Location = $displayRegions[$regionChoice].name
 
-# 默认过期时间：7天
-$config.AutoDeleteAfterDays = 7
-$deleteAfterDate = (Get-Date).AddDays(7).ToString("yyyy-MM-dd")
-
 # ============================================
 # Step 7: 确认并部署
 # ============================================
@@ -457,9 +453,6 @@ Write-Host ("{0,-32}" -f $config.ResourceGroupName) -ForegroundColor Cyan -NoNew
 Write-Host "│" -ForegroundColor DarkGray
 Write-Host "  │ 区域:       " -ForegroundColor DarkGray -NoNewline
 Write-Host ("{0,-32}" -f $config.Location) -ForegroundColor White -NoNewline
-Write-Host "│" -ForegroundColor DarkGray
-Write-Host "  │ 过期时间:   " -ForegroundColor DarkGray -NoNewline
-Write-Host ("{0,-32}" -f $deleteAfterDate) -ForegroundColor Yellow -NoNewline
 Write-Host "│" -ForegroundColor DarkGray
 if ($config.DeployNsp) {
     Write-Host "  │ NSP 模式:   " -ForegroundColor DarkGray -NoNewline
@@ -542,7 +535,6 @@ if ($script:IsDryRun) {
     $tags = @(
         "Developer=$($config.Developer)",
         "Feature=$(if ($config.Feature) { $config.Feature } else { 'general' })",
-        "DeleteAfter=$deleteAfterDate",
         "CreatedAt=$(Get-Date -Format 'yyyy-MM-dd HH:mm')",
         "SecurityCompliance=SFI-ID4.2.1"
     )
@@ -655,12 +647,6 @@ if ($config.DeployCosmos) { Write-Host "    Cosmos:   disableLocalAuth = true" -
 if ($config.DeployNsp) { 
     Write-Host "    NSP:      accessMode = $($config.NspAccessMode)" -ForegroundColor DarkGreen 
     Write-Host "              (资源已关联到网络安全边界)" -ForegroundColor DarkGray
-}
-
-Write-Host ""
-if ($config.AutoDeleteAfterDays -gt 0) {
-    Write-Host "  过期时间: " -ForegroundColor Gray -NoNewline
-    Write-Host $deleteAfterDate -ForegroundColor Yellow
 }
 
 if ($script:IsDryRun) {

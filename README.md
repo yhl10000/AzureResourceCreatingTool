@@ -53,8 +53,9 @@ The wizard guides you through:
 2. Select subscription
 3. Enter your alias (for resource naming)
 4. Select resources to create
-5. Select region (dynamically loaded from Azure)
-6. Confirm and deploy
+5. Configure Network Security Perimeter (optional)
+6. Select region (dynamically loaded from Azure)
+7. Confirm and deploy
 
 ---
 
@@ -64,8 +65,7 @@ The wizard guides you through:
 |---------|-------------|
 | **Security Compliant** | All resources automatically meet SFI-ID4.2.1 |
 | **Interactive Wizard** | No parameters to memorize |
-| **Auto Expiry** | Dev environments expire in 7 days (avoids resource sprawl) |
-| **One-Click Cleanup** | Identify and remove expired environments |
+| **Network Security Perimeter** | Optional NSP integration for network isolation |
 | **Policy Enforcement** | Optionally deploy Azure Policy to block non-compliant resources |
 | **Dry-Run Mode** | Preview the entire flow without creating anything |
 
@@ -109,9 +109,6 @@ All resources created by this tool automatically comply with these security stan
 
 # List all environments
 .\scripts\Get-DevEnvironments.ps1
-
-# Cleanup expired environments
-.\scripts\Remove-ExpiredEnvironments.ps1 -Force
 ```
 
 ### Option 3: Direct Bicep (Advanced)
@@ -136,7 +133,6 @@ AzureResourceCreatingTool/
 ├── scripts/                        # Utility scripts
 │   ├── New-DevEnvironment.ps1      # Quick create dev environment
 │   ├── Get-DevEnvironments.ps1     # List all environments
-│   ├── Remove-ExpiredEnvironments.ps1  # Cleanup expired
 │   ├── Deploy.ps1                  # Full deployment script
 │   └── Remediate-NonCompliantResources.ps1  # Fix non-compliant resources
 │
@@ -168,21 +164,17 @@ AzureResourceCreatingTool/
 
 Example output:
 ```
-Developer  Status      Days Left  Resource Group
----------  ------      ---------  --------------
-zs         Active      5d         rg-dev-zs
-ls         Expiring    1d         rg-dev-ls
-ww         EXPIRED     2d overdue rg-dev-ww
+Developer  CreatedAt            Resource Group
+---------  ---------            --------------
+zs         2025-01-15 10:30     rg-dev-zs
+ls         2025-01-20 14:45     rg-dev-ls
+ww         2025-01-22 09:00     rg-dev-ww
 ```
 
-### Cleanup Expired Environments
+### Delete an Environment
 
 ```powershell
-# Preview what will be cleaned up
-.\scripts\Remove-ExpiredEnvironments.ps1 -ListOnly
-
-# Execute cleanup
-.\scripts\Remove-ExpiredEnvironments.ps1 -Force
+az group delete --name rg-dev-zs --yes
 ```
 
 ---
@@ -257,14 +249,9 @@ pwsh --version        # Check PowerShell
 1. Use Azure AD authentication
 2. Assign appropriate RBAC roles (e.g., Storage Blob Data Contributor)
 
-### Q: How do I manually delete an environment?
+### Q: How do I delete an environment?
 ```powershell
 az group delete --name rg-dev-zs --yes
-```
-
-### Q: How do I extend the expiry time?
-```powershell
-az group update --name rg-dev-zs --tags DeleteAfter=2025-12-31
 ```
 
 ---
